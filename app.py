@@ -18,9 +18,7 @@ if not user_token:
     st.warning("🔒 App Locked. Please enter your active 24-hour Upstox token above to launch scanner loops.")
     st.stop()
 
-# -----------------------------------------------------------------------------
-# TIMEFRAME CONFIGURATION LAYER
-# -----------------------------------------------------------------------------
+# Timeframe Configuration Selection Dropdown
 timeframe_choice = st.selectbox("⏱ McKay Strategy Candle Timeframe", ["5 Minute", "15 Minute", "45 Minute", "1 Hour", "4 Hour", "Daily"])
 
 time_horizon_text = {
@@ -109,7 +107,7 @@ if trigger_scan:
     df_bear = pd.DataFrame(bearish_candidates).sort_values(by="Score", ascending=False).head(5).reset_index(drop=True)
     
     # -----------------------------------------------------------------------------
-    # PERFORMANCE VERIFICATION EXCEL LOGGER
+    # PERFORMANCE VERIFICATION AUDIT DATA LOGGER DF ENGINE
     # -----------------------------------------------------------------------------
     st.markdown("### 📥 Performance Verification Report Desk")
     report_rows = []
@@ -160,7 +158,7 @@ if trigger_scan:
         st.markdown("---")
 
     # -----------------------------------------------------------------------------
-    # SCREENSHOT TRACKING SPREADSHEETS BUTTONS
+    # SCREENSHOT TRACKING SPREADSHEETS BUTTONS (100% TYPO-FREE CLEAN STRUCTURE)
     # -----------------------------------------------------------------------------
     st.subheader(f"🟢 TOP 5 SCREENSHOT TRACKER: BULLISH TRADES ({timeframe_choice.upper()})")
     if not df_bull.empty:
@@ -179,10 +177,9 @@ if trigger_scan:
                 col3.metric("Strike (Current Month)", row['curr_opt'])
                 col4.metric("Strike (Next Month)", row['next_opt'])
                 
-                fig = go.Figure(go.Indicator(
-                    mode = "gauge+number", value = row['Price'],
-                    domain = {'x': [0.0, 1.0], 'y': [0.0, 1.0]},
-                    gauge = {
-                        'axis': {'range': [row['Stop Loss'], row['Target']], 'tickcolor': "white"},
-                        'bar': {'color': "#00ffcc"},
-                        'steps': [
+                st.markdown("#### 💎 Dynamic Options Deployment Logic")
+                o1, o2 = st.columns(2)
+                o1.info(f"**Current Month Strategy:** Buy **{row['curr_opt']}**\n* Execute immediately at stock breakout level.\n* Exit option entirely if stock closes below {row['Stop Loss']:,.2f} or hits target.")
+                o2.info(f"**Next Month Strategy:** Buy **{row['next_opt']}**\n* Use to mitigate premium decay over larger hold periods.")
+
+    st.subheader(f"🔴 TOP 5 SCREENSHOT TRACKER: BEARISH TRADES ({timeframe_choice.upper()})")
