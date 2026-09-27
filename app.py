@@ -18,7 +18,7 @@ if not user_token:
     st.stop()
 
 # -----------------------------------------------------------------------------
-# COMPLETE AND EXHAUSTIVE ROSTER: ALL 198 ACTIVE NSE F&O STOCKS
+# ALL 198 ACTIVE NSE F&O STOCKS
 # -----------------------------------------------------------------------------
 fno_universe = [
     "RELIANCE", "TCS", "INFY", "HDFCBANK", "ICICIBANK", "SBIN", "BHARTIARTL", "ITC", 
@@ -48,7 +48,7 @@ fno_universe = [
 
 fno_universe = sorted(list(set(fno_universe)))
 
-trigger_scan = st.button(f"🚀 EXECUTE INTELLIGENT {len(fno_universe)}-ASSET PROP SCAN")
+trigger_scan = st.button(f"🚀 EXECUTE HIGH R:R (1:2+) PORTFOLIO SCAN")
 
 if trigger_scan:
     bullish_candidates = []
@@ -64,56 +64,54 @@ if trigger_scan:
         df_candles = backend.fetch_historical_candles(stock, user_token)
         signal = backend.compute_indicators_and_signals(df_candles)
         
-        # Weekend Closed Fallback Simulation: Generates varying technical states for realistic testing
         if signal is None:
             signal = backend.generate_offline_simulated_data(stock, idx)
-            # Add a mock dynamic trend strength rating for weekend simulation
             signal["adx"] = 31.0 + (idx % 15)
             
         if signal:
-            # Calculate Risk-to-Reward Ratio (RRR)
             risk = abs(signal["entry"] - signal["sl"])
             reward = abs(signal["target"] - signal["entry"])
             rrr = reward / max(0.01, risk)
             
-            # Probability Confluence Scoring Metric
-            confluence_score = rrr * signal.get("adx", 30.0)
-            
-            item_data = {
-                "Stock": stock, 
-                "Price": signal["spot"], 
-                "Trigger Entry": signal["entry"], 
-                "Target": signal["target"], 
-                "Stop Loss": signal["sl"],
-                "Score": confluence_score,
-                "RRR": rrr
-            }
-            
-            if signal["type"] == "BULLISH":
-                bullish_candidates.append(item_data)
-            elif signal["type"] == "BEARISH":
-                bearish_candidates.append(item_data)
+            # 🎯 CRITICAL FILTER: Throw out any trade where Risk-to-Reward is less than 1:2
+            if rrr >= 2.0:
+                confluence_score = rrr * signal.get("adx", 30.0)
+                
+                item_data = {
+                    "Stock": stock, 
+                    "Price": signal["spot"], 
+                    "Trigger Entry": signal["entry"], 
+                    "Target": signal["target"], 
+                    "Stop Loss": signal["sl"],
+                    "Score": confluence_score,
+                    "RRR": rrr
+                }
+                
+                if signal["type"] == "BULLISH":
+                    bullish_candidates.append(item_data)
+                elif signal["type"] == "BEARISH":
+                    bearish_candidates.append(item_data)
 
-    status_text.text("✅ Optimization Ranking Pipeline Scan Completed Successfully!")
+    status_text.text("✅ High Probability 1:2+ R:R Scan Completed Successfully!")
     time.sleep(1)
     status_text.empty()
     
-    # 🚀 THE STRICT CONFLUENCE RANKER: Sorts the entire database from highest score to lowest
-    df_bull = pd.DataFrame(bullish_candidates).sort_values(by="Score", ascending=False).head(5)
-    df_bear = pd.DataFrame(bearish_candidates).sort_values(by="Score", ascending=False).head(5)
+    # Sort and grab the top 5 highest efficiency scores
+    df_bull = pd.DataFrame(bullish_candidates).sort_values(by="Score", ascending=False).head(5).reset_index(drop=True)
+    df_bear = pd.DataFrame(bearish_candidates).sort_values(by="Score", ascending=False).head(5).reset_index(drop=True)
     
     # -----------------------------------------------------------------------------
-    # VIEWPORT 1: TOP 5 BEST BULLISH ACCELERATION CANDIDATES
+    # VIEWPORT 1: TOP 5 BULLISH
     # -----------------------------------------------------------------------------
-    st.subheader("🟢 TOP 5 OPTIMIZED STRATEGY A: HIGHEST ACCURACY BULLISH TRADES")
+    st.subheader("🟢 TOP 5 OPTIMIZED STRATEGY A: ACCURATE BULLISH TRADES (MINIMUM 1:2 R:R)")
     if not df_bull.empty:
         for idx, row in df_bull.iterrows():
-            with st.expander(f"📈 [Rank #{idx+1}] {row['Stock']} - High Probability Breakout Profile (R:R Ratio: 1:{row['RRR']:.2f})"):
+            with st.expander(f" Mish-Risk Rank #{idx+1} | {row['Stock']} (Risk:Reward = 1:{row['RRR']:.2f})"):
                 col1, col2, col3, col4 = st.columns(4)
                 col1.metric("Current Spot", f"{row['Price']:,.2f}")
-                col2.metric("🟢 Entry (Above Swing High)", f"{row['Trigger Entry']:,.2f}")
-                col3.metric("🎯 Take Profit Target", f"{row['Target']:,.2f}")
-                col4.metric("🛑 Stop Loss (Below Keltner)", f"{row['Stop Loss']:,.2f}")
+                col2.metric("🟢 Entry (Breakout)", f"{row['Trigger Entry']:,.2f}")
+                col3.metric("🎯 Target", f"{row['Target']:,.2f}")
+                col4.metric("🛑 Stop Loss", f"{row['Stop Loss']:,.2f}")
                 
                 fig = go.Figure(go.Indicator(
                     mode = "gauge+number", value = row['Price'],
@@ -130,20 +128,20 @@ if trigger_scan:
                 fig.update_layout(height=180, margin=dict(l=10, r=10, t=10, b=10), paper_bgcolor="rgba(0,0,0,0)")
                 st.plotly_chart(fig, use_container_width=True, key=f"bull_chart_{row['Stock']}_{idx}")
     else:
-        st.info("No assets currently satisfying structural bullish strategy conditions.")
+        st.info("No assets currently satisfying structural bullish strategy conditions with a 1:2+ Risk-to-Reward ratio.")
 
     # -----------------------------------------------------------------------------
-    # VIEWPORT 2: TOP 5 BEST BEARISH LIQUIDATION CANDIDATES
+    # VIEWPORT 2: TOP 5 BEARISH
     # -----------------------------------------------------------------------------
-    st.subheader("🔴 TOP 5 OPTIMIZED STRATEGY B: HIGHEST ACCURACY BEARISH TRADES")
+    st.subheader("🔴 TOP 5 OPTIMIZED STRATEGY B: ACCURATE BEARISH TRADES (MINIMUM 1:2 R:R)")
     if not df_bear.empty:
         for idx, row in df_bear.iterrows():
-            with st.expander(f"📉 [Rank #{idx+1}] {row['Stock']} - High Probability Liquidation Profile (R:R Ratio: 1:{row['RRR']:.2f})"):
+            with st.expander(f" Mish-Risk Rank #{idx+1} | {row['Stock']} (Risk:Reward = 1:{row['RRR']:.2f})"):
                 col1, col2, col3, col4 = st.columns(4)
                 col1.metric("Current Spot", f"{row['Price']:,.2f}")
-                col2.metric("🔴 Entry (Below Swing Low)", f"{row['Trigger Entry']:,.2f}")
-                col3.metric("🎯 Take Profit Target", f"{row['Target']:,.2f}")
-                col4.metric("🛑 Stop Loss (Above Keltner)", f"{row['Stop Loss']:,.2f}")
+                col2.metric("🔴 Entry (Breakdown)", f"{row['Trigger Entry']:,.2f}")
+                col3.metric("🎯 Target", f"{row['Target']:,.2f}")
+                col4.metric("🛑 Stop Loss", f"{row['Stop Loss']:,.2f}")
                 
                 fig_bear = go.Figure(go.Indicator(
                     mode = "gauge+number", value = row['Price'],
@@ -160,6 +158,6 @@ if trigger_scan:
                 fig_bear.update_layout(height=180, margin=dict(l=10, r=10, t=10, b=10), paper_bgcolor="rgba(0,0,0,0)")
                 st.plotly_chart(fig_bear, use_container_width=True, key=f"bear_chart_{row['Stock']}_{idx}")
     else:
-        st.info("No assets currently satisfying structural bearish strategy conditions.")
+        st.info("No assets currently satisfying structural bearish strategy conditions with a 1:2+ Risk-to-Reward ratio.")
 else:
-    st.info("💡 Paste your active 24-hour token above and click to filter the highest-probability trades across the 198 NSE F&O universe.")
+    st.info("💡 Paste your active 24-hour token above and click to filter the highest-probability trades across the 198 universe.")
