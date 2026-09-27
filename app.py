@@ -19,7 +19,7 @@ if not user_token:
     st.stop()
 
 # -----------------------------------------------------------------------------
-# UPDATED TIMEFRAME CONFIGURATION LAYER WITH 5-MIN AND 45-MIN INTERSECTS
+# TIMEFRAME CONFIGURATION LAYER
 # -----------------------------------------------------------------------------
 timeframe_choice = st.selectbox("⏱ McKay Strategy Candle Timeframe", ["5 Minute", "15 Minute", "45 Minute", "1 Hour", "4 Hour", "Daily"])
 
