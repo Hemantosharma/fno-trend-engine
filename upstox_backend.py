@@ -31,10 +31,8 @@ def compute_indicators_and_signals(df):
     high = df['h']
     low = df['l']
     
-    # 1. Intraday VWAP Calculation
     df['vwap'] = (df['c'] * df['v']).cumsum() / df['v'].cumsum()
     
-    # 2. Keltner Channel (20 EMA + 2 * ATR)
     ema20 = close.ewm(span=20, adjust=False).mean()
     high_low = high - low
     high_close = abs(high - close.shift())
@@ -45,7 +43,6 @@ def compute_indicators_and_signals(df):
     keltner_upper = ema20 + (2 * atr)
     keltner_lower = ema20 - (2 * atr)
     
-    # 3. Average Directional Index (ADX 14)
     up_move = high.diff()
     down_move = low.shift() - low
     plus_dm = np.where((up_move > down_move) & (up_move > 0), up_move, 0.0)
@@ -58,14 +55,12 @@ def compute_indicators_and_signals(df):
     dx = 100 * abs(plus_di - minus_di) / (plus_di + minus_di).replace(0, 1e-5)
     adx = dx.rolling(window=14).mean()
     
-    # 4. Relative Strength Index (RSI 14)
     delta = close.diff()
     gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
     loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
     rs = gain / loss.replace(0, 1e-5)
     rsi = 100 - (100 / (1 + rs.replace(0, 1e-5)))
     
-    # 5. MACD (12, 26, 9)
     macd_line = close.ewm(span=12, adjust=False).mean() - close.ewm(span=26, adjust=False).mean()
     signal_line = macd_line.ewm(span=9, adjust=False).mean()
     
@@ -73,30 +68,14 @@ def compute_indicators_and_signals(df):
     c_vwap = df['vwap'].iloc[-1]
     c_adx = adx.iloc[-1] if not adx.empty else 0
     
-    # Extract Swing High / Swing Low boundary anchors
     peaks, _ = find_peaks(high.values, distance=5)
     troughs, _ = find_peaks(-low.values, distance=5)
     
     swing_high = high.iloc[peaks[-1]] if len(peaks) > 0 else high.max()
     swing_low = low.iloc[troughs[-1]] if len(troughs) > 0 else low.min()
     
-    # Strategy A Check: Bullish Accelerations
-    is_bullish = (
-        (c_price > c_vwap) and 
-        (c_price > keltner_upper.iloc[-1]) and 
-        (c_adx > 30) and 
-        (rsi.iloc[-1] > rsi.iloc[-2]) and 
-        (macd_line.iloc[-1] > signal_line.iloc[-1])
-    )
-    
-    # Strategy B Check: Bearish Liquidations
-    is_bearish = (
-        (c_price < c_vwap) and 
-        (c_price < keltner_lower.iloc[-1]) and 
-        (c_adx > 30) and 
-        (rsi.iloc[-1] < rsi.iloc[-2]) and 
-        (macd_line.iloc[-1] < signal_line.iloc[-1])
-    )
+    is_bullish = (c_price > c_vwap and c_price > keltner_upper.iloc[-1] and c_adx > 30 and rsi.iloc[-1] > rsi.iloc[-2] and macd_line.iloc[-1] > signal_line.iloc[-1])
+    is_bearish = (c_price < c_vwap and c_price < keltner_lower.iloc[-1] and c_adx > 30 and rsi.iloc[-1] < rsi.iloc[-2] and macd_line.iloc[-1] < signal_line.iloc[-1])
     
     if is_bullish:
         return {
@@ -108,15 +87,29 @@ def compute_indicators_and_signals(df):
             "type": "BEARISH", "spot": c_price, "entry": swing_low * 0.998,
             "target": c_price - (abs(keltner_upper.iloc[-1] - c_price) * 1.5), "sl": keltner_upper.iloc[-1]
         }
-        
     return None
 
 def generate_offline_simulated_data(stock_symbol, index_rank):
-    """Generates strategy targets fallback structures during weekends/closed market hours."""
-    base_prices = {"RELIANCE": 2450.0, "TCS": 4120.0, "INFY": 1820.0, "HDFCBANK": 1640.0, "SBIN": 780.0, "TATAMOTORS": 940.0}
-    spot = base_prices.get(stock_symbol, 1200.0)
+    """Generates unique, realistic mock prices based on the stock's actual trading zone."""
+    # 📈 Real baseline pricing dictionary to fix the identical numbers bug
+    base_prices = {
+        "RELIANCE": 2465.0, "TCS": 4150.0, "INFY": 1845.0, "HDFCBANK": 1652.0, 
+        "SBIN": 784.0, "TATAMOTORS": 938.0, "AARTIIND": 485.0, "ABB": 7210.0, 
+        "ABBOTINDIA": 26800.0, "ABCAPITAL": 204.0, "ABFRL": 235.0, "ALKEM": 5120.0,
+        "ALOKINDS": 22.0, "BALKRISIND": 2850.0, "BALRAMCHIN": 365.0, "DIXON": 11450.0,
+        "TRENT": 7150.0, "ZOMATO": 268.0, "HAL": 4230.0, "BEL": 274.0
+    }
+    
+    # Grab the true price baseline or generate a distinct mathematical variation based on stock name length
+    spot = base_prices.get(stock_symbol, 450.0 + (len(stock_symbol) * 35.5))
     
     if index_rank % 2 == 0:
-        return {"type": "BULLISH", "spot": spot, "entry": spot * 1.005, "target": spot * 1.035, "sl": spot * 0.985}
+        return {
+            "type": "BULLISH", "spot": spot, "entry": spot * 1.006, 
+            "target": spot * 1.038, "sl": spot * 0.982
+        }
     else:
-        return {"type": "BEARISH", "spot": spot, "entry": spot * 0.995, "target": spot * 0.965, "sl": spot * 1.015}
+        return {
+            "type": "BEARISH", "spot": spot, "entry": spot * 0.994, 
+            "target": spot * 0.962, "sl": spot * 1.018
+        }
