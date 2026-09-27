@@ -4,9 +4,20 @@ import numpy as np
 import streamlit as st
 from scipy.signal import find_peaks
 
-def fetch_historical_candles(stock_symbol, token):
+def fetch_historical_candles(stock_symbol, timeframe, token):
+    """Fetches historical candle bars from Upstox API based on chosen dynamic timeframe."""
     key = f"NSE_EQ|{stock_symbol}"
-    url = f"https://upstox.com{key}/15minute"
+    
+    # Map friendly dropdown labels to official Upstox API timeframe endpoints
+    tf_map = {
+        "15 Minute": "15minute",
+        "1 Hour": "1hour",
+        "4 Hour": "4hour",
+        "Daily": "day"
+    }
+    api_tf = tf_map.get(timeframe, "15minute")
+    
+    url = f"https://upstox.com{key}/{api_tf}"
     headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
     
     try:
@@ -74,28 +85,40 @@ def compute_indicators_and_signals(df):
     is_bullish = (c_price > c_vwap and c_price > keltner_upper.iloc[-1] and c_adx > 30 and rsi.iloc[-1] > rsi.iloc[-2] and macd_line.iloc[-1] > signal_line.iloc[-1])
     is_bearish = (c_price < c_vwap and c_price < keltner_lower.iloc[-1] and c_adx > 30 and rsi.iloc[-1] < rsi.iloc[-2] and macd_line.iloc[-1] < signal_line.iloc[-1])
     
+    step = 5 if c_price < 300 else (10 if c_price < 1000 else 20)
+    atm_strike = round(c_price / step) * step
+    
     if is_bullish:
         risk = abs(swing_high * 1.002 - keltner_lower.iloc[-1])
         return {
             "type": "BULLISH", "spot": c_price, "entry": swing_high * 1.002,
-            "target": (swing_high * 1.002) + (risk * 2.1), "sl": keltner_lower.iloc[-1], "adx": c_adx
+            "target": (swing_high * 1.002) + (risk * 2.1), "sl": keltner_lower.iloc[-1], "adx": c_adx,
+            "curr_opt": f"{atm_strike} CE", "next_opt": f"{atm_strike - step} CE"
         }
     elif is_bearish:
         risk = abs(keltner_upper.iloc[-1] - swing_low * 0.998)
         return {
             "type": "BEARISH", "spot": c_price, "entry": swing_low * 0.998,
-            "target": (swing_low * 0.998) - (risk * 2.1), "sl": keltner_upper.iloc[-1], "adx": c_adx
+            "target": (swing_low * 0.998) - (risk * 2.1), "sl": keltner_upper.iloc[-1], "adx": c_adx,
+            "curr_opt": f"{atm_strike} PE", "next_opt": f"{atm_strike + step} PE"
         }
     return None
 
 def generate_offline_simulated_data(stock_symbol, index_rank):
-    # Added real baseline values for JIOFIN and UNIONBANK to match the real world!
     base_prices = {"JIOFIN": 227.0, "UNIONBANK": 180.0, "RELIANCE": 2465.0, "TCS": 4150.0, "INFY": 1845.0, "HDFCBANK": 1652.0}
     spot = base_prices.get(stock_symbol, 350.0 + (len(stock_symbol) * 12.5))
     
-    # Simulates an exact high-probability 1:2.5 Risk-to-Reward ratio
+    step = 5 if spot < 300 else (10 if spot < 1000 else 20)
+    atm_strike = round(spot / step) * step
+    
     risk_dist = spot * 0.02
     if index_rank % 2 == 0:
-        return {"type": "BULLISH", "spot": spot, "entry": spot + (risk_dist * 0.2), "target": spot + (risk_dist * 5.2), "sl": spot - risk_dist, "adx": 35.0}
+        return {
+            "type": "BULLISH", "spot": spot, "entry": spot + (risk_dist * 0.2), "target": spot + (risk_dist * 5.2), "sl": spot - risk_dist, "adx": 35.0,
+            "curr_opt": f"{atm_strike} CE", "next_opt": f"{atm_strike - step} CE"
+        }
     else:
-        return {"type": "BEARISH", "spot": spot, "entry": spot - (risk_dist * 0.2), "target": spot - (risk_dist * 5.2), "sl": spot + risk_dist, "adx": 37.0}
+        return {
+            "type": "BEARISH", "spot": spot, "entry": spot - (risk_dist * 0.2), "target": spot - (risk_dist * 5.2), "sl": spot + risk_dist, "adx": 37.0,
+            "curr_opt": f"{atm_strike} PE", "next_opt": f"{atm_strike + step} PE"
+        }
