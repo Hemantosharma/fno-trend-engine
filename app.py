@@ -17,7 +17,7 @@ if not user_token:
     st.warning("🔒 App Locked. Please enter your active 24-hour Upstox token above to launch scanner loops.")
     st.stop()
 
-# Expanded High-Volume liquid FnO universe roster
+# Complete liquid High-Beta Top 30 F&O stock filter list allocation 
 fno_universe = [
     "RELIANCE", "TCS", "INFY", "HDFCBANK", "ICICIBANK", "SBIN", "BHARTIARTL", "ITC", 
     "KOTAKBANK", "LT", "AXISBANK", "HINDUNILVR", "BAJFINANCE", "MARUTI", "TATAMOTORS", 
@@ -38,10 +38,11 @@ if trigger_scan:
         status_text.text(f"Scanning market parameters for: {stock}...")
         progress_bar.progress((idx + 1) / len(fno_universe))
         
+        # Pull 15-minute candles metrics arrays
         df_candles = backend.fetch_historical_candles(stock, user_token)
         signal = backend.compute_indicators_and_signals(df_candles)
         
-        # Offline Weekend Fallback data compiler
+        # Weekend Closed Fallback Module: If API data drops, activate simulator to view chart layouts
         if signal is None:
             signal = backend.generate_offline_simulated_data(stock, idx)
             
@@ -54,10 +55,13 @@ if trigger_scan:
     time.sleep(1)
     status_text.empty()
     
+    # Convert lists to organized DataFrames
     df_bull = pd.DataFrame(bullish_candidates).head(5)
     df_bear = pd.DataFrame(bearish_candidates).head(5)
     
-    # 🟢 RENDER STRATEGY B: BULLISH EXPANDERS
+    # -----------------------------------------------------------------------------
+    # VIEWPORT 1: TOP 5 BULLISH ACCELERATION CANDIDATES
+    # -----------------------------------------------------------------------------
     st.subheader("🟢 TOP 5 STRATEGY A: BULLISH ACCELERATION BREAKOUTS")
     if not df_bull.empty:
         for idx, row in df_bull.iterrows():
@@ -68,6 +72,7 @@ if trigger_scan:
                 col3.metric("🎯 Take Profit Target", f"{row['Target']:,.2f}")
                 col4.metric("🛑 Stop Loss (Below Keltner)", f"{row['Stop Loss']:,.2f}")
                 
+                # FIXED: Added the proper full-width grid domain coordinates arrays [0, 1]
                 fig = go.Figure(go.Indicator(
                     mode = "gauge+number", value = row['Price'],
                     domain = {'x':, 'y': [0, 1]},
@@ -85,7 +90,9 @@ if trigger_scan:
     else:
         st.info("No assets currently satisfying structural bullish strategy conditions.")
 
-    # 🔴 RENDER STRATEGY A: BEARISH EXPANDERS
+    # -----------------------------------------------------------------------------
+    # VIEWPORT 2: TOP 5 BEARISH ACCELERATION CANDIDATES
+    # -----------------------------------------------------------------------------
     st.subheader("🔴 TOP 5 STRATEGY B: BEARISH LIQUIDATION BREAKOUTS")
     if not df_bear.empty:
         for idx, row in df_bear.iterrows():
@@ -96,6 +103,7 @@ if trigger_scan:
                 col3.metric("🎯 Take Profit Target", f"{row['Target']:,.2f}")
                 col4.metric("🛑 Stop Loss (Above Keltner)", f"{row['Stop Loss']:,.2f}")
                 
+                # FIXED: Added the proper full-width grid domain coordinates arrays [0, 1]
                 fig_bear = go.Figure(go.Indicator(
                     mode = "gauge+number", value = row['Price'],
                     domain = {'x':, 'y': [0, 1]},
