@@ -10,7 +10,9 @@ def fetch_historical_candles(stock_symbol, timeframe, token):
     
     # Map friendly dropdown labels to official Upstox API timeframe endpoints
     tf_map = {
+        "5 Minute": "5minute",
         "15 Minute": "15minute",
+        "45 Minute": "45minute",
         "1 Hour": "1hour",
         "4 Hour": "4hour",
         "Daily": "day"
