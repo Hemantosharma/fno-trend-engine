@@ -3,6 +3,7 @@ import numpy as np
 import plotly.graph_objects as go
 import pandas as pd
 import time
+from datetime import datetime, timedelta
 import upstox_backend as backend
 
 st.set_page_config(page_title="Momentum Scan Engine", layout="wide", initial_sidebar_state="collapsed")
@@ -18,19 +19,18 @@ if not user_token:
     st.stop()
 
 # -----------------------------------------------------------------------------
-# DYNAMIC TIMEFRAME CONFIGURATION LAYER
+# DYNAMIC TIMEFRAME LAYER
 # -----------------------------------------------------------------------------
 timeframe_choice = st.selectbox("⏱️ Select Strategy Candle Timeframe", ["15 Minute", "1 Hour", "4 Hour", "Daily"])
 
-# Dynamically map the expected trade period text based on user selection
 time_horizon_text = {
-    "15 Minute": "Max 4 to 6 Hours (Intraday Momentum Window)",
-    "1 Hour": "Max 2 to 3 Days (Short Swing Window)",
-    "4 Hour": "Max 1 to 2 Weeks (Medium Swing Window)",
-    "Daily": "Max 3 to 4 Weeks (Positional Trend Window)"
-}.get(timeframe_choice, "Max 4 to 6 Hours")
+    "15 Minute": "4-6 Hours",
+    "1 Hour": "2-3 Days",
+    "4 Hour": "1-2 Weeks",
+    "Daily": "3-4 Weeks"
+}.get(timeframe_choice, "4-6 Hours")
 
-# All 198 Active NSE F&O Stocks
+# 198 Active NSE F&O Stocks Watchlist
 fno_universe = [
     "RELIANCE", "TCS", "INFY", "HDFCBANK", "ICICIBANK", "SBIN", "BHARTIARTL", "ITC", 
     "KOTAKBANK", "LT", "AXISBANK", "HINDUNILVR", "BAJFINANCE", "MARUTI", "TATAMOTORS", 
@@ -72,7 +72,6 @@ if trigger_scan:
         status_text.text(f"Processing {timeframe_choice} candle vectors [{idx+1}/{len(fno_universe)}]: {stock}...")
         progress_bar.progress((idx + 1) / len(fno_universe))
         
-        # Pass the dynamic timeframe_choice variable to the data pipeline
         df_candles = backend.fetch_historical_candles(stock, timeframe_choice, user_token)
         signal = backend.compute_indicators_and_signals(df_candles)
         
@@ -108,25 +107,30 @@ if trigger_scan:
     df_bear = pd.DataFrame(bearish_candidates).sort_values(by="Score", ascending=False).head(5).reset_index(drop=True)
     
     # -----------------------------------------------------------------------------
-    # VIEWPORT 1: BULLISH ENTRIES
+    # SCREENSHOT-OPTIMIZED VIEWPORT 1: BULLISH TRADES
     # -----------------------------------------------------------------------------
-    st.subheader(f"🟢 TOP 5 BEST BULLISH TRADES ({timeframe_choice.upper()} FRAME)")
+    st.subheader(f"🟢 TOP 5 SCREENSHOT TRACKER: BULLISH TRADES ({timeframe_choice.upper()})")
     if not df_bull.empty:
         for idx, row in df_bull.iterrows():
-            with st.expander(f"📈 Rank #{idx+1} | {row['Stock']} (Risk:Reward = 1:{row['RRR']:.2f})"):
-                st.warning(f"⏳ **EXPECTED MOVEMENT TIME DURATION HORIZON:** {time_horizon_text}")
-                
-                c1, c2, c3, c4 = st.columns(4)
+            # SCREENSHOT RE-ENGINEERING: All system parameters are hard-baked directly into the header label string
+            header_label = (
+                f"📈 Rank #{idx+1} | {row['Stock']} | "
+                f"Entry: {row['Trigger Entry']:,.2f} | "
+                f"SL: {row['Stop Loss']:,.2f} | "
+                f"Target: {row['Target']:,.2f} | "
+                f"Duration: {time_horizon_text}"
+            )
+            with st.expander(header_label):
                 col1, col2, col3, col4 = st.columns(4)
-                c1.metric("Current Spot", f"{row['Price']:,.2f}")
-                c2.metric("Stock Entry (Breakout)", f"{row['Trigger Entry']:,.2f}")
-                c3.metric("Stock Target", f"{row['Target']:,.2f}")
-                c4.metric("Stock Stop Loss", f"{row['Stop Loss']:,.2f}")
+                col1.metric("Current Spot", f"{row['Price']:,.2f}")
+                col2.metric("R:R Ratio Score", f"1 : {row['RRR']:.2f}")
+                col3.metric("Strike (Current Month)", row['curr_opt'])
+                col4.metric("Strike (Next Month)", row['next_opt'])
                 
-                st.markdown("#### 💎 Low-Risk Options Execution Strategy")
+                st.markdown("#### 💎 Dynamic Options Deployment Logic")
                 o1, o2 = st.columns(2)
-                o1.info(f"**Current Month Contract:** Buy **{row['curr_opt']}**\n\n*   **Options Entry:** Immediate entry at Stock Breakout\n*   **Options SL:** Exit if Stock goes below {row['Stop Loss']:,.2f}\n*   **Options Target:** Exit if Stock achieves {row['Target']:,.2f}")
-                o2.info(f"**Next Month Contract (Premium Shield):** Buy **{row['next_opt']}**\n\n*   **Options Entry:** Pre-position at Breakout confirmation\n*   **Options SL:** Exit if Stock crosses under {row['Stop Loss']:,.2f}\n*   **Options Target:** Exit if Stock ticks above {row['Target']:,.2f}")
+                o1.info(f"**Current Month Strategy:** Buy **{row['curr_opt']}**\n* Execute immediately at stock breakout level.\n* Exit option entirely if stock closes below {row['Stop Loss']:,.2f} or hits target.")
+                o2.info(f"**Next Month Strategy (Theta Shield):** Buy **{row['next_opt']}**\n* Use to mitigate premium decay over larger hold periods.\n* Stop loss triggers if stock prints below {row['Stop Loss']:,.2f}.")
                 
                 fig = go.Figure(go.Indicator(
                     mode = "gauge+number", value = row['Price'],
@@ -140,26 +144,32 @@ if trigger_scan:
                         ]
                     }
                 ))
-                fig.update_layout(height=160, margin=dict(l=10, r=10, t=10, b=10), paper_bgcolor="rgba(0,0,0,0)")
+                fig.update_layout(height=140, margin=dict(l=10, r=10, t=10, b=10), paper_bgcolor="rgba(0,0,0,0)")
                 st.plotly_chart(fig, use_container_width=True, key=f"bull_chart_{row['Stock']}_{idx}")
     else:
         st.info("No assets currently satisfying structural bullish strategy conditions with a 1:2+ Risk-to-Reward ratio.")
 
     # -----------------------------------------------------------------------------
-    # VIEWPORT 2: BEARISH ENTRIES
+    # SCREENSHOT-OPTIMIZED VIEWPORT 2: BEARISH TRADES
     # -----------------------------------------------------------------------------
-    st.subheader(f"🔴 TOP 5 BEST BEARISH TRADES ({timeframe_choice.upper()} FRAME)")
+    st.subheader(f"🔴 TOP 5 SCREENSHOT TRACKER: BEARISH TRADES ({timeframe_choice.upper()})")
     if not df_bear.empty:
         for idx, row in df_bear.iterrows():
-            with st.expander(f" Rank #{idx+1} | {row['Stock']} (Risk:Reward = 1:{row['RRR']:.2f})"):
-                st.warning(f"⏳ **EXPECTED MOVEMENT TIME DURATION HORIZON:** {time_horizon_text}")
+            # SCREENSHOT RE-ENGINEERING: All system parameters are hard-baked directly into the header label string
+            header_label = (
+                f"📉 Rank #{idx+1} | {row['Stock']} | "
+                f"Entry: {row['Trigger Entry']:,.2f} | "
+                f"SL: {row['Stop Loss']:,.2f} | "
+                f"Target: {row['Target']:,.2f} | "
+                f"Duration: {time_horizon_text}"
+            )
+            with st.expander(header_label):
+                col1, col2, col3, col4 = st.columns(4)
+                col1.metric("Current Spot", f"{row['Price']:,.2f}")
+                col2.metric("R:R Ratio Score", f"1 : {row['RRR']:.2f}")
+                col3.metric("Strike (Current Month)", row['curr_opt'])
+                col4.metric("Strike (Next Month)", row['next_opt'])
                 
-                c1, c2, c3, c4 = st.columns(4)
-                c1.metric("Current Spot", f"{row['Price']:,.2f}")
-                c2.metric("Stock Entry (Breakdown)", f"{row['Trigger Entry']:,.2f}")
-                c3.metric("Stock Target", f"{row['Target']:,.2f}")
-                c4.metric("Stock Stop Loss", f"{row['Stop Loss']:,.2f}")
-                
-                st.markdown("#### 💎 Low-Risk Options Execution Strategy")
+                st.markdown("#### 💎 Dynamic Options Deployment Logic")
                 o1, o2 = st.columns(2)
-                o1.error(f"**Current Month Contract:** Buy **{row['curr_opt']}**\n\n*   **Options Entry:** Immediate entry at Stock Breakdown\n*   **Options SL:** Exit if Stock goes above {row['Stop Loss']:,.2f}\n*   **Options Target:** Exit if Stock achieves {row['Target']:,.2f}")
+                o1.error(f"**Current Month Strategy:** Buy **{row['curr_opt']}**\n* Execute immediately at stock breakdown level.\n* Exit option entirely if stock closes above {row['Stop Loss']:,.2f} or hits target.")
