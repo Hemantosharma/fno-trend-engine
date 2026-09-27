@@ -5,7 +5,6 @@ import streamlit as st
 from scipy.signal import find_peaks
 
 def fetch_historical_candles(stock_symbol, token):
-    """Fetches high-density 15-minute timeframe historical candle bars from Upstox API."""
     key = f"NSE_EQ|{stock_symbol}"
     url = f"https://upstox.com{key}/15minute"
     headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
@@ -15,15 +14,13 @@ def fetch_historical_candles(stock_symbol, token):
         candles = res.get("data", {}).get("candles", [])
         if candles:
             df = pd.DataFrame(candles, columns=['ts', 'o', 'h', 'l', 'c', 'v', 'oi']).iloc[::-1].reset_index(drop=True)
-            for col in ['o', 'h', 'l', 'c', 'v']: 
-                df[col] = df[col].astype(float)
+            for col in ['o', 'h', 'l', 'c', 'v']: df[col] = df[col].astype(float)
             return df
     except Exception:
         pass
     return None
 
 def compute_indicators_and_signals(df):
-    """Calculates VWAP, Keltner Channels, ADX, RSI Reversals, and MACD intersections."""
     if df is None or len(df) < 35:
         return None
         
@@ -80,36 +77,20 @@ def compute_indicators_and_signals(df):
     if is_bullish:
         return {
             "type": "BULLISH", "spot": c_price, "entry": swing_high * 1.002,
-            "target": c_price + (abs(c_price - keltner_lower.iloc[-1]) * 1.5), "sl": keltner_lower.iloc[-1]
+            "target": c_price + (abs(c_price - keltner_lower.iloc[-1]) * 1.5), "sl": keltner_lower.iloc[-1], "adx": c_adx
         }
     elif is_bearish:
         return {
             "type": "BEARISH", "spot": c_price, "entry": swing_low * 0.998,
-            "target": c_price - (abs(keltner_upper.iloc[-1] - c_price) * 1.5), "sl": keltner_upper.iloc[-1]
+            "target": c_price - (abs(keltner_upper.iloc[-1] - c_price) * 1.5), "sl": keltner_upper.iloc[-1], "adx": c_adx
         }
     return None
 
 def generate_offline_simulated_data(stock_symbol, index_rank):
-    """Generates unique, realistic mock prices based on the stock's actual trading zone."""
-    # 📈 Real baseline pricing dictionary to fix the identical numbers bug
-    base_prices = {
-        "RELIANCE": 2465.0, "TCS": 4150.0, "INFY": 1845.0, "HDFCBANK": 1652.0, 
-        "SBIN": 784.0, "TATAMOTORS": 938.0, "AARTIIND": 485.0, "ABB": 7210.0, 
-        "ABBOTINDIA": 26800.0, "ABCAPITAL": 204.0, "ABFRL": 235.0, "ALKEM": 5120.0,
-        "ALOKINDS": 22.0, "BALKRISIND": 2850.0, "BALRAMCHIN": 365.0, "DIXON": 11450.0,
-        "TRENT": 7150.0, "ZOMATO": 268.0, "HAL": 4230.0, "BEL": 274.0
-    }
-    
-    # Grab the true price baseline or generate a distinct mathematical variation based on stock name length
+    base_prices = {"RELIANCE": 2465.0, "TCS": 4150.0, "INFY": 1845.0, "HDFCBANK": 1652.0, "SBIN": 784.0}
     spot = base_prices.get(stock_symbol, 450.0 + (len(stock_symbol) * 35.5))
     
     if index_rank % 2 == 0:
-        return {
-            "type": "BULLISH", "spot": spot, "entry": spot * 1.006, 
-            "target": spot * 1.038, "sl": spot * 0.982
-        }
+        return {"type": "BULLISH", "spot": spot, "entry": spot * 1.006, "target": spot * 1.038, "sl": spot * 0.982, "adx": 32.0}
     else:
-        return {
-            "type": "BEARISH", "spot": spot, "entry": spot * 0.994, 
-            "target": spot * 0.962, "sl": spot * 1.018
-        }
+        return {"type": "BEARISH", "spot": spot, "entry": spot * 0.994, "target": spot * 0.962, "sl": spot * 1.018, "adx": 34.0}
